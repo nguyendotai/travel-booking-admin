@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { FaPlus } from "react-icons/fa";
+import Link from "next/link";
 
 export default function ToursManagementPage() {
   const tours = [
@@ -40,10 +41,12 @@ export default function ToursManagementPage() {
     >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-blue-300">Manage Tours</h2>
-        <button className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full hover:scale-105 transition-transform">
-          <FaPlus className="mr-2" />
-          Add New Tour
-        </button>
+        <Link
+          href="/tours/add"
+          className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full hover:scale-105 transition-transform"
+        >
+          <FaPlus className="mr-2" /> Add New Tour
+        </Link>
       </div>
 
       <table className="w-full text-left border-collapse">

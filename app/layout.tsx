@@ -1,31 +1,20 @@
-"use client";
-
-import { useState } from "react";
-import Sidebar from "./components/Sidebar";
-import Header from "./components/Header";
+// app/layout.tsx
 import "./globals.css";
+
+export const metadata = {
+  title: "Admin Panel",
+  description: "Next.js Admin Panel",
+};
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body
-      className= "antialiased bg-gradient-to-br from-purple-900 via-blue-900 to-gray-900 text-white"
-      >
-        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-        <Header isSidebarOpen={isSidebarOpen} />
-        <main
-          className={`p-6 mt-16 transition-all duration-300 ${
-            isSidebarOpen ? "ml-64" : "ml-16"
-          }`}
-        >
-          {children}
-        </main>
+      <body className="antialiased bg-gradient-to-br from-purple-900 via-blue-900 to-gray-900 text-white">
+        {children}
       </body>
     </html>
   );
