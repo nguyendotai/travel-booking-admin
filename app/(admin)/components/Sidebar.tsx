@@ -8,6 +8,10 @@ import {
   FaPlane,
   FaCog,
   FaBars,
+  FaList,
+  FaMapMarkerAlt,
+  FaHotel,
+  FaGlobe,
 } from "react-icons/fa";
 import { motion, AnimatePresence, easeInOut } from "framer-motion";
 import Link from "next/link";
@@ -55,7 +59,15 @@ export default function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
             { icon: <FaHome />, label: "Dashboard", href: "/" },
             { icon: <FaTicketAlt />, label: "Bookings", href: "/bookings" },
             { icon: <FaUsers />, label: "Users", href: "/users" },
+            { icon: <FaList />, label: "Categories", href: "/categories" },
             { icon: <FaPlane />, label: "Tours", href: "/tours" },
+            {
+              icon: <FaMapMarkerAlt />,
+              label: "Locations",
+              href: "/locations",
+            },
+            { icon: <FaHotel />, label: "Hotels", href: "/hotels" },
+            { icon: <FaGlobe />, label: "Destinations", href: "/destinations" },
             { icon: <FaCog />, label: "Settings", href: "/settings" },
           ].map((item, index) => (
             <li key={index}>
