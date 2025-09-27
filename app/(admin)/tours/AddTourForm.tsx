@@ -8,21 +8,19 @@ interface Category {
   name: string;
   type: "fixed" | "optional";
 }
-
 interface Location {
+  fixedCategoryId: number;
   id: number;
   name: string;
 }
-
 interface Hotel {
-  location_id: string | number;
   id: number;
+  location_id: number | string;
   name: string;
 }
-
 interface Destination {
-  location_id: string | number;
   id: number;
+  location_id: number | string;
   name: string;
   description: string;
 }
@@ -34,47 +32,39 @@ export default function AddTourForm() {
     price: "",
     startDate: "",
     endDate: "",
-    duration: "",
     capacity: "",
     status: "active",
     fixedCategoryId: "",
     optionalCategoryIds: [] as number[],
     locationId: 0,
     hotelId: "",
+    discount: "0", // 👈 thêm
+    isHotDeal: false, // 👈 thêm
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<number | "">("");
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<
     number[]
   >([]);
+  const [selectedLocation, setSelectedLocation] = useState<number | "">("");
+  const [image, setImage] = useState<File | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const [catRes, locRes, hotelRes] = await Promise.all([
-          fetch("http://localhost:5000/api/categories"),
-          fetch("http://localhost:5000/api/locations"),
-          fetch("http://localhost:5000/api/hotels"),
-        ]);
-
-        const [catData, locData, hotelData] = await Promise.all([
-          catRes.json(),
-          locRes.json(),
-          hotelRes.json(),
-        ]);
-
-        setCategories(catData);
-        setLocations(locData);
-        setHotels(hotelData);
-      } catch (err) {
-        console.error("Fetch error:", err);
-      }
+      const [catRes, locRes] = await Promise.all([
+        fetch("http://localhost:5000/api/categories"),
+        fetch("http://localhost:5000/api/locations"),
+      ]);
+      const [catData, locData] = await Promise.all([
+        catRes.json(),
+        locRes.json(),
+      ]);
+      setCategories(Array.isArray(catData.data) ? catData.data : []);
+      setLocations(Array.isArray(locData.data) ? locData.data : []);
     };
-
     fetchData();
   }, []);
 
@@ -84,57 +74,7 @@ export default function AddTourForm() {
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleMultiSelect = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-    field: "optionalCategoryIds" | "locationIds"
-  ) => {
-    const values = Array.from(e.target.selectedOptions, (opt) =>
-      Number(opt.value)
-    );
-    setFormData((prev) => ({
-      ...prev,
-      [field]: values,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const res = await fetch("http://localhost:5000/api/tours", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...formData,
-          price: Number(formData.price),
-          duration: Number(formData.duration),
-          capacity: Number(formData.capacity),
-          fixedCategoryId: Number(formData.fixedCategoryId),
-          locationIds: selectedLocation ? [selectedLocation] : [],
-          hotelIds: formData.hotelId ? [Number(formData.hotelId)] : [],
-          destinationIds: selectedDestinationIds,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        alert("Tour created successfully!");
-        console.log("New Tour:", data);
-      } else {
-        alert(data.error || "Failed to create tour");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Server error!");
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleLocationChange = async (
@@ -142,31 +82,104 @@ export default function AddTourForm() {
   ) => {
     const locId = Number(e.target.value);
     setSelectedLocation(locId);
+    setFormData((prev) => ({ ...prev, locationId: locId, hotelId: "" }));
+    if (!locId) return setHotels([]), setDestinations([]);
 
-    setFormData((prev) => ({
-      ...prev,
-      locationId: locId,
-      hotelId: "", // reset hotel khi đổi location
-    }));
+    const [hotelRes, destRes] = await Promise.all([
+      fetch(`http://localhost:5000/api/locations/${locId}/hotels`),
+      fetch(`http://localhost:5000/api/locations/${locId}/destinations`),
+    ]);
+    const hotelData = await hotelRes.json();
+    const destData = await destRes.json();
+    setHotels(hotelData.data || []);
+    setDestinations(destData.data || []);
+    setSelectedDestinationIds([]);
+  };
 
-    if (locId) {
-      try {
-        const [hotelRes, destRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/locations/${locId}/hotels`),
-          fetch(`http://localhost:5000/api/locations/${locId}/destinations`),
-        ]);
-        const hotelData = await hotelRes.json();
-        const destData = await destRes.json();
-        setHotels(hotelData);
-        setDestinations(destData);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (
+      !formData.name ||
+      !formData.price ||
+      !formData.capacity ||
+      !formData.startDate ||
+      !formData.endDate ||
+      !formData.fixedCategoryId ||
+      !formData.locationId
+    ) {
+      return alert("Vui lòng điền đầy đủ thông tin bắt buộc");
+    }
+
+    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+      return alert("End date cannot be before start date");
+    }
+
+    try {
+      const form = new FormData();
+      form.append("name", formData.name);
+      form.append("description", formData.description);
+      form.append("price", String(Number(formData.price)));
+      form.append("capacity", String(Number(formData.capacity)));
+      form.append("status", formData.status);
+      form.append("startDate", formData.startDate);
+      form.append("endDate", formData.endDate);
+      form.append("discount", String(Number(formData.discount)));
+      form.append("isHotDeal", String(formData.isHotDeal));
+      form.append("fixedCategoryId", String(Number(formData.fixedCategoryId)));
+      if (formData.locationId)
+        form.append("location_id", String(formData.locationId));
+      if (formData.hotelId)
+        form.append("hotel_id", String(Number(formData.hotelId)));
+      if (selectedDestinationIds.length > 0)
+        form.append("destinationIds", JSON.stringify(selectedDestinationIds));
+      if (formData.optionalCategoryIds.length > 0)
+        form.append(
+          "optionalCategoryIds",
+          JSON.stringify(formData.optionalCategoryIds)
+        );
+      if (image) form.append("image", image);
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/tours", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
+      const data = await res.json();
+      console.log("🔍 Response từ server:", data);
+      if (res.ok) {
+        alert("✅ Tour created successfully!");
+        console.log("New Tour:", data);
+
+        // 👉 reset form
+        setFormData({
+          name: "",
+          description: "",
+          price: "",
+          startDate: "",
+          endDate: "",
+          capacity: "",
+          status: "active",
+          fixedCategoryId: "",
+          optionalCategoryIds: [],
+          locationId: 0,
+          hotelId: "",
+          discount: "0",
+          isHotDeal: false,
+        });
+        setImage(null);
         setSelectedDestinationIds([]);
-      } catch (err) {
-        console.error("Failed to fetch hotels:", err);
+        setSelectedLocation("");
+        setHotels([]);
+        setDestinations([]);
+      } else {
+        alert(data.error || "❌ Failed to create tour");
       }
-    } else {
-      setHotels([]);
-      setDestinations([]);
-      setSelectedDestinationIds([]); // nếu không chọn location thì clear hotels
+    } catch (err) {
+      console.error(err);
+      alert("Server error!");
     }
   };
 
@@ -180,9 +193,6 @@ export default function AddTourForm() {
       <motion.form
         onSubmit={handleSubmit}
         className="w-full max-w-3xl bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20"
-        initial={{ y: 50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
       >
         <h2 className="text-3xl font-bold text-white text-center mb-8">
           Create New Tour
@@ -190,236 +200,226 @@ export default function AddTourForm() {
 
         {/* Tour Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Tour Name
-            </label>
+          <input
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Tour name"
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+          <input
+            type="number"
+            name="price"
+            value={formData.price}
+            onChange={handleChange}
+            placeholder="Price"
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+          <input
+            type="number"
+            name="discount"
+            value={formData.discount}
+            onChange={handleChange}
+            placeholder="Discount (%)"
+            min="0"
+            max="100"
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+
+          <label className="flex items-center gap-2 text-white">
             <input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Enter tour name"
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              type="checkbox"
+              checked={formData.isHotDeal}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  isHotDeal: e.target.checked,
+                }))
+              }
+              className="accent-cyan-400"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Price
-            </label>
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              placeholder="Enter price"
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Duration (days)
-            </label>
-            <input
-              type="number"
-              name="duration"
-              value={formData.duration}
-              onChange={handleChange}
-              placeholder="Enter duration"
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Capacity
-            </label>
-            <input
-              type="number"
-              name="capacity"
-              value={formData.capacity}
-              onChange={handleChange}
-              placeholder="Enter capacity"
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            />
-          </div>
+            Hot Deal
+          </label>
+          <input
+            type="number"
+            name="capacity"
+            value={formData.capacity}
+            onChange={handleChange}
+            placeholder="Capacity"
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
         </div>
 
         {/* Dates */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleChange}
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              End Date
-            </label>
-            <input
-              type="date"
-              name="endDate"
-              value={formData.endDate}
-              onChange={handleChange}
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            />
-          </div>
+          <input
+            type="date"
+            name="startDate"
+            value={formData.startDate}
+            onChange={handleChange}
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+          <input
+            type="date"
+            name="endDate"
+            value={formData.endDate}
+            onChange={handleChange}
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
         </div>
 
-        {/* Categories & Status */}
+        {/* Categories */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Fixed Category
-            </label>
-            <select
-              name="fixedCategoryId"
-              value={formData.fixedCategoryId}
-              onChange={handleChange}
-              required
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              <option value="">Select Fixed Category</option>
-              {categories
-                .filter((c) => c.type === "fixed")
-                .map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Optional Categories
-            </label>
-            <select
-              multiple
-              value={formData.optionalCategoryIds.map(String)}
-              onChange={(e) => handleMultiSelect(e, "optionalCategoryIds")}
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-24"
-            >
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+
+          <select
+            name="fixedCategoryId"
+            value={formData.fixedCategoryId}
+            onChange={handleChange}
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="">Select Fixed Category</option>
+            {categories
+              .filter((c) => c.type === "fixed")
+              .map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+          </select>
+
+          <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 text-white">
+            <p className="mb-2 font-semibold">Optional Categories:</p>
+            <div className="grid grid-cols-2 gap-2">
               {categories
                 .filter((c) => c.type === "optional")
-                .map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-            </select>
+                .map((cat) => {
+                  const checked = formData.optionalCategoryIds.includes(cat.id);
+                  return (
+                    <label key={cat.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        value={cat.id}
+                        checked={checked}
+                        onChange={(e) => {
+                          const id = Number(e.target.value);
+                          setFormData((prev) => {
+                            let updated = [...prev.optionalCategoryIds];
+                            if (e.target.checked) updated.push(id);
+                            else updated = updated.filter((i) => i !== id);
+                            return { ...prev, optionalCategoryIds: updated };
+                          });
+                        }}
+                        className="accent-cyan-400"
+                      />
+                      {cat.name}
+                    </label>
+                  );
+                })}
+            </div>
           </div>
         </div>
 
-        {/* Locations & Hotel */}
+        {/* Location, Hotel, Destinations */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Location
-            </label>
-            <select
-              value={selectedLocation || ""}
-              onChange={handleLocationChange}
-              required
-              disabled={!formData.fixedCategoryId} // 🔥 disable khi chưa có fixedCategory
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              <option value="">Select Location</option>
-              {locations.map((loc) => (
+          <select
+            value={selectedLocation || ""}
+            onChange={handleLocationChange}
+            required
+            disabled={!formData.fixedCategoryId}
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+          >
+            <option value="">Select Location</option>
+            {locations
+              .filter(
+                (loc) =>
+                  loc.fixedCategoryId === Number(formData.fixedCategoryId)
+              )
+              .map((loc) => (
                 <option key={loc.id} value={loc.id}>
                   {loc.name}
                 </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Hotel
-            </label>
-            <select
-              name="hotelId"
-              value={formData.hotelId}
-              onChange={handleChange}
-              disabled={!selectedLocation} // nếu chưa chọn location thì disable
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-            >
-              <option value="">Select Hotel</option>
-              {hotels.map((hotel) => (
-                <option key={hotel.id} value={hotel.id}>
-                  {hotel.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Destinations
-            </label>
-            <select
-              multiple
-              value={selectedDestinationIds.map(String)}
-              onChange={(e) => {
-                const values = Array.from(e.target.selectedOptions, (opt) =>
-                  Number(opt.value)
-                );
-                setSelectedDestinationIds(values);
-              }}
-              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 h-24"
-            >
-              {destinations.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+          </select>
 
-        {/* Description */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-200 mb-1">
-            Description
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
+          <select
+            name="hotelId"
+            value={formData.hotelId}
             onChange={handleChange}
-            placeholder="Enter tour description"
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-32"
-          />
+            disabled={!selectedLocation}
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+          >
+            <option value="">Select Hotel</option>
+            {hotels.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+
+          <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 text-white col-span-2">
+            <p className="mb-2 font-semibold">Destinations:</p>
+            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+              {destinations.map((d) => {
+                const checked = selectedDestinationIds.includes(d.id);
+                return (
+                  <label key={d.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      value={d.id}
+                      checked={checked}
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        setSelectedDestinationIds((prev) => {
+                          let updated = [...prev];
+                          if (e.target.checked) updated.push(id);
+                          else updated = updated.filter((i) => i !== id);
+                          return updated;
+                        });
+                      }}
+                      className="accent-cyan-400"
+                    />
+                    {d.name}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Description + Image */}
+        <textarea
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Description"
+          required
+          className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-28"
+        />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
+          className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
+
         <motion.button
           type="submit"
-          className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-semibold hover:bg-gradient-to-l focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="w-full py-3 bg-blue-500 text-white mt-4 rounded-lg"
         >
           Create Tour
         </motion.button>

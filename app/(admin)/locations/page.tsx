@@ -22,7 +22,7 @@ export default function LocationsManagementPage() {
           throw new Error("Failed to fetch locations");
         }
         const data = await res.json();
-        setLocations(data); // API trả về mảng JSON
+        setLocations(data.data); // API trả về mảng JSON
       } catch (error) {
         console.error("Error fetching locations:", error);
       } finally {

@@ -1,80 +1,54 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
-interface Location {
-  id: number;
-  name: string;
-}
-
-export default function EditDestinationForm({ id }: { id: string }) {
+export default function EditCategoryForm({ id }: { id: string }) {
   const router = useRouter();
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    location_id: "",
-    status: "true",
+    type: "fixed",
+    startDate: "",
+    endDate: "",
   });
 
   const [image, setImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null); // hiển thị ảnh cũ/mới
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch danh sách location
+  // Fetch category hiện tại
   useEffect(() => {
-    const fetchLocations = async () => {
+    const fetchCategory = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/locations");
+        const res = await fetch(`http://localhost:5000/api/categories/${id}`);
         const data = await res.json();
-        setLocations(data);
-      } catch (err) {
-        console.error("Failed to fetch locations:", err);
-      }
-    };
-    fetchLocations();
-  }, []);
 
-  // Fetch destination hiện tại
-  // Fetch destination hiện tại
-  useEffect(() => {
-    const fetchDestination = async () => {
-      try {
-        const res = await fetch(`http://localhost:5000/api/destinations/${id}`);
-        const result = await res.json();
+        setFormData({
+          name: data.name,
+          description: data.description || "",
+          type: data.type || "fixed",
+          startDate: data.startDate || "",
+          endDate: data.endDate || "",
+        });
 
-        if (result.success && result.data) {
-          const dest = result.data;
-          setFormData({
-            name: dest.name,
-            description: dest.description || "",
-            location_id: String(dest.location_id || ""),
-            status: String(dest.status), // 👈 convert boolean -> "true"/"false"
-          });
-
-          if (dest.image) {
-            setPreview(`http://localhost:5000${dest.image}`);
-          }
-        } else {
-          alert("Destination not found!");
+        if (data.image) {
+          setPreview(`http://localhost:5000${data.image}`);
         }
       } catch (err) {
-        console.error("Failed to fetch destination:", err);
+        console.error("Failed to fetch category:", err);
       } finally {
         setLoading(false);
       }
     };
-    if (id) fetchDestination();
+    if (id) fetchCategory();
   }, [id]);
 
   // Xử lý input
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -88,7 +62,7 @@ export default function EditDestinationForm({ id }: { id: string }) {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImage(file);
-      setPreview(URL.createObjectURL(file)); // xem trước ảnh mới
+      setPreview(URL.createObjectURL(file));
     }
   };
 
@@ -105,14 +79,17 @@ export default function EditDestinationForm({ id }: { id: string }) {
     const form = new FormData();
     form.append("name", formData.name);
     form.append("description", formData.description);
-    form.append("location_id", formData.location_id);
-    form.append("status", formData.status);
+    form.append("type", formData.type);
+    if (formData.type === "optional") {
+      form.append("startDate", formData.startDate);
+      form.append("endDate", formData.endDate);
+    }
     if (image) {
       form.append("image", image);
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/destinations/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/categories/${id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -122,10 +99,10 @@ export default function EditDestinationForm({ id }: { id: string }) {
 
       const data = await res.json();
       if (res.ok) {
-        alert("Destination updated successfully!");
-        router.push("/destinations"); // quay lại danh sách
+        alert("Category updated successfully!");
+        router.push("/categories");
       } else {
-        alert(data.error || "Failed to update destination");
+        alert(data.error || "Failed to update category");
       }
     } catch (err) {
       console.error("Update failed:", err);
@@ -152,7 +129,7 @@ export default function EditDestinationForm({ id }: { id: string }) {
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
         <h2 className="text-3xl font-bold text-white text-center mb-8">
-          Edit Destination
+          Edit Category
         </h2>
 
         {/* Name */}
@@ -165,30 +142,57 @@ export default function EditDestinationForm({ id }: { id: string }) {
             value={formData.name}
             onChange={handleChange}
             required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
           />
         </div>
 
-        {/* Location */}
+        {/* Type */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-200 mb-1">
-            Location
+            Type
           </label>
           <select
-            name="location_id"
-            value={formData.location_id}
+            name="type"
+            value={formData.type}
             onChange={handleChange}
-            required
             className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
           >
-            <option value="">Select Location</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
+            <option value="fixed">Fixed</option>
+            <option value="optional">Optional</option>
           </select>
         </div>
+
+        {/* StartDate & EndDate (chỉ khi type = optional) */}
+        {formData.type === "optional" && (
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleChange}
+                required={formData.type === "optional"}
+                className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                End Date
+              </label>
+              <input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleChange}
+                required={formData.type === "optional"}
+                className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         <div className="mb-6">
@@ -199,24 +203,8 @@ export default function EditDestinationForm({ id }: { id: string }) {
             name="description"
             value={formData.description}
             onChange={handleChange}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-28"
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 h-28"
           />
-        </div>
-
-        {/* Status */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-200 mb-1">
-            Status
-          </label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
         </div>
 
         {/* Image */}
@@ -242,11 +230,11 @@ export default function EditDestinationForm({ id }: { id: string }) {
         {/* Submit */}
         <motion.button
           type="submit"
-          className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-semibold hover:bg-gradient-to-l focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-semibold hover:bg-gradient-to-l"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Update Destination
+          Update Category
         </motion.button>
       </motion.form>
     </motion.div>

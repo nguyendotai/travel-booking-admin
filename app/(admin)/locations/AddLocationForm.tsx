@@ -1,12 +1,10 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
-interface Category {
+interface FixedCategory {
   id: number;
   name: string;
-  type: "fixed" | "optional";
 }
 
 export default function AddLocationForm() {
@@ -14,19 +12,23 @@ export default function AddLocationForm() {
     name: "",
     country: "",
     description: "",
-    fixedCategoryId: "",
+    fixedCategoryId: "", // 👈 thêm field này
   });
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<FixedCategory[]>([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/categories");
+        const res = await fetch("http://localhost:5000/api/categories?type=fixed");
         const data = await res.json();
-        setCategories(data);
-      } catch (err) { 
-        console.error("Failed to fetch categories:", err);
+        if (res.ok) {
+          setCategories(data.data || []);
+        } else {
+          console.error(data.error || "Failed to fetch categories");
+        }
+      } catch (err) {
+        console.error("Error fetching categories:", err);
       }
     };
     fetchCategories();
@@ -47,8 +49,7 @@ export default function AddLocationForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const token = localStorage.getItem("token"); // 👈 lấy token đã lưu
-
+    const token = localStorage.getItem("token");
     if (!token) {
       alert("Bạn cần đăng nhập trước khi thêm Location!");
       return;
@@ -59,13 +60,9 @@ export default function AddLocationForm() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // Nếu có auth thì thêm:
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          fixedCategoryId: Number(formData.fixedCategoryId),
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await res.json();
@@ -134,31 +131,8 @@ export default function AddLocationForm() {
           />
         </div>
 
-        {/* Fixed Category */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-200 mb-1">
-            Fixed Category
-          </label>
-          <select
-            name="fixedCategoryId"
-            value={formData.fixedCategoryId}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="">Select Fixed Category</option>
-            {categories
-              .filter((c) => c.type === "fixed")
-              .map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-          </select>
-        </div>
-
         {/* Description */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="block text-sm font-medium text-gray-200 mb-1">
             Description
           </label>
@@ -169,6 +143,27 @@ export default function AddLocationForm() {
             placeholder="Enter location description"
             className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-28"
           />
+        </div>
+
+        {/* Fixed Category Select */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-200 mb-1">
+            Fixed Category
+          </label>
+          <select
+            name="fixedCategoryId"
+            value={formData.fixedCategoryId}
+            onChange={handleChange}
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="">-- Select Category --</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Submit */}

@@ -1,37 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 
-interface Loction {
-  id: number;
-  name: string;
-}
-
-export default function AddDestinationForm() {
+export default function AddCategoryForm() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    location_id: "",
-    status: "true",
-    featured: "false",
+    type: "fixed",
+    startDate: "",
+    endDate: "",
+    status: true,
   });
 
   const [image, setImage] = useState<File | null>(null);
-  const [locations, setLocations] = useState<Loction[]>([]);
-
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/locations");
-        const data = await res.json();
-        setLocations(data.data);
-      } catch (err) {
-        console.error("Failed to fetch categories:", err);
-      }
-    };
-    fetchLocations();
-  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -54,27 +36,35 @@ export default function AddDestinationForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const token = localStorage.getItem("token"); // 👈 lấy token đã lưu
-
+    const token = localStorage.getItem("token");
     if (!token) {
-      alert("Bạn cần đăng nhập trước khi thêm Destination!");
+      alert("Bạn cần đăng nhập trước khi thêm Category!");
       return;
     }
 
-    // 👇 Tạo FormData
+    // Nếu chọn optional thì phải có startDate và endDate
+    if (
+      formData.type === "optional" &&
+      (!formData.startDate || !formData.endDate)
+    ) {
+      alert("Vui lòng chọn Start Date và End Date cho category optional!");
+      return;
+    }
+
     const form = new FormData();
     form.append("name", formData.name);
     form.append("description", formData.description);
-    form.append("location_id", formData.location_id);
-    form.append("status", formData.status);
-    form.append("featured", formData.featured);
-
+    form.append("type", formData.type);
+    if (formData.type === "optional") {
+      form.append("startDate", formData.startDate);
+      form.append("endDate", formData.endDate);
+    }
     if (image) {
       form.append("image", image);
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/destinations", {
+      const res = await fetch("http://localhost:5000/api/categories", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -84,18 +74,19 @@ export default function AddDestinationForm() {
 
       const data = await res.json();
       if (res.ok) {
-        alert("Destination created successfully!");
-        console.log("New Location:", data);
+        alert("Category created successfully!");
+        console.log("New Category:", data);
         setFormData({
           name: "",
           description: "",
-          location_id: "",
-          status: "true",
-          featured: "false",
+          type: "fixed",
+          startDate: "",
+          endDate: "",
+          status: true,
         });
         setImage(null);
       } else {
-        alert(data.error || "Failed to create Destination");
+        alert(data.error || "Failed to create Category");
       }
     } catch (err) {
       console.error("Server error:", err);
@@ -118,43 +109,22 @@ export default function AddDestinationForm() {
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
         <h2 className="text-3xl font-bold text-white text-center mb-8">
-          Thêm điểm đếm
+          Create New Category
         </h2>
 
         {/* Name */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-200 mb-1">
-            Destination Name
+            Category Name
           </label>
           <input
             name="name"
             value={formData.name}
             onChange={handleChange}
-            placeholder="Enter destination name"
+            placeholder="Enter category name"
             required
             className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           />
-        </div>
-
-        {/* Location select */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-200 mb-1">
-            Location
-          </label>
-          <select
-            name="location_id"
-            value={formData.location_id}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="">Chọn vị trí</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Description */}
@@ -166,40 +136,77 @@ export default function AddDestinationForm() {
             name="description"
             value={formData.description}
             onChange={handleChange}
-            placeholder="Enter location description"
+            placeholder="Enter category description"
             className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-28"
           />
         </div>
 
+        {/* Type */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-200 mb-1">
+            Category Type
+          </label>
+          <select
+            name="type"
+            value={formData.type}
+            onChange={handleChange}
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="fixed">Fixed</option>
+            <option value="optional">Optional</option>
+          </select>
+        </div>
+
+        {/* StartDate & EndDate chỉ hiển thị nếu type = optional */}
+        {formData.type === "optional" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleChange}
+                required={formData.type === "optional"}
+                className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                End Date
+              </label>
+              <input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleChange}
+                required={formData.type === "optional"}
+                className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Status */}
-        <div className="mb-4">
+        <div className="mb-6">
           <label className="block text-sm font-medium text-gray-200 mb-1">
             Status
           </label>
           <select
             name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+            value={formData.status ? "true" : "false"}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                status: e.target.value === "true",
+              }))
+            }
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           >
             <option value="true">Active</option>
             <option value="false">Inactive</option>
-          </select>
-        </div>
-
-        {/* Featured */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-200 mb-1">
-            Featured
-          </label>
-          <select
-            name="featured"
-            value={formData.featured}
-            onChange={handleChange}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="false">Không</option>
-            <option value="true">Có</option>
           </select>
         </div>
 
@@ -223,7 +230,7 @@ export default function AddDestinationForm() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Create Location
+          Create Category
         </motion.button>
       </motion.form>
     </motion.div>

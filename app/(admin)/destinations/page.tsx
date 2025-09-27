@@ -10,7 +10,7 @@ interface Destination {
   name: string;
   description: string;
   image?: string;
-  status?: string;
+  status?: number;
   Location?: { id: number; name: string };
 }
 
@@ -22,8 +22,8 @@ export default function DestinationsManagementPage() {
     const fetchDestinations = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/destinations");
-        const data = await res.json();
-        setDestinations(data);
+        const result = await res.json();
+        setDestinations(result.data || []);
       } catch (err) {
         console.error("Failed to fetch destinations:", err);
       } finally {
@@ -118,14 +118,13 @@ export default function DestinationsManagementPage() {
                 <td className="p-3">
                   <span
                     className={
-                      dest.status === "Active"
-                        ? "text-green-400"
-                        : "text-red-400"
+                      dest.status === 1 ? "text-green-400" : "text-red-400"
                     }
                   >
-                    {dest.status || "Inactive"}
+                    {dest.status === 1 ? "Active" : "Inactive"}
                   </span>
                 </td>
+
                 <td className="p-3 flex space-x-2">
                   <Link href={`/destinations/edit/${dest.id}`}>
                     <button className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 transition">

@@ -1,11 +1,15 @@
-"use client";
-
 import EditDestinationForm from "../../EditDestinationForm";
 
-export default function EditDestinationPage({ params }: { params: { id: string } }) {
-    return(
-        <div className="p-6">
-            <EditDestinationForm id={params.id}></EditDestinationForm>
-        </div>
-    )
+export default async function EditDestinationPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  return (
+    <div className="p-6">
+      <EditDestinationForm id={id} />
+    </div>
+  );
 }
