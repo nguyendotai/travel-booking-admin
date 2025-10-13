@@ -32,6 +32,36 @@ export default function CategoriesManagementPage() {
     fetchCategories();
   }, []);
 
+  const handleDelete = async (id: number) => {
+    if (!confirm("bạn có chắc muốn xóa Danh mục này không?")) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Bạn cần đăng nhập để xóa danh mục!");
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/categories/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${ token }`,
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "Xóa thành công");
+        setCategories((prev) => prev.filter((cate) => cate.id !== id));
+      } else {
+        alert(data.error || "Xóa thất bại");
+      }
+    } catch (error) {
+      console.error("Lỗ khi xóa danh mục:", error);
+      alert("Lỗi server khi xóa!");
+    }
+  };
+
   if (loading) {
     return <p className="text-center text-white">Loading...</p>;
   }
@@ -103,7 +133,9 @@ export default function CategoriesManagementPage() {
                       Edit
                     </button>
                   </Link>
-                  <button className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition">
+                  <button
+                  onClick={() => handleDelete(cat.id)}
+                  className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition">
                     Delete
                   </button>
                 </div>

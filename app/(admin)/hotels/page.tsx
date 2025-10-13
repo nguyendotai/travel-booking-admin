@@ -3,13 +3,42 @@
 import { motion } from "framer-motion";
 import { FaPlus } from "react-icons/fa";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+interface Location {
+  id: number;
+  name: string;
+}
+
+interface Hotel {
+  id: number;
+  name: string;
+  locations: Location[];
+  status: string | null;
+  rating: string | null;
+}
 
 export default function HotelsManagementPage() {
-  const hotels = [
-    { id: "#H001", name: "Hanoi Grand Hotel", location: "Hanoi", rating: "5 Stars", status: "Active" },
-    { id: "#H002", name: "Sapa Resort", location: "Sapa", rating: "4 Stars", status: "Inactive" },
-    { id: "#H003", name: "Halong Bay Hotel", location: "Quang Ninh", rating: "5 Stars", status: "Active" },
-  ];
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHotels = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/hotels");
+        if (!res.ok) {
+          throw new Error("Lỗi khi fetch hotels");
+        }
+        const data = await res.json();
+        setHotels(data.data);
+      } catch (error) {
+        console.error("Error fetching hotels:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHotels();
+  }, []);
 
   return (
     <motion.div
@@ -50,16 +79,30 @@ export default function HotelsManagementPage() {
             >
               <td className="p-3">{hotel.id}</td>
               <td className="p-3">{hotel.name}</td>
-              <td className="p-3">{hotel.location}</td>
+              <td className="p-3">
+                {hotel.locations && hotel.locations.length > 0
+                  ? hotel.locations.map((loc) => loc.name).join(", ")
+                  : "N/A"}
+              </td>
               <td className="p-3">{hotel.rating}</td>
               <td className="p-3">
-                <span className={hotel.status === "Active" ? "text-green-400" : "text-red-400"}>
+                <span
+                  className={
+                    hotel.status === "Active"
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }
+                >
                   {hotel.status}
                 </span>
               </td>
               <td className="p-3 flex space-x-2">
-                <button className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 transition">Edit</button>
-                <button className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition">Delete</button>
+                <button className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 transition">
+                  Edit
+                </button>
+                <button className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition">
+                  Delete
+                </button>
               </td>
             </motion.tr>
           ))}

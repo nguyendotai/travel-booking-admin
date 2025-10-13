@@ -24,18 +24,18 @@ export default function EditCategoryForm({ id }: { id: string }) {
     const fetchCategory = async () => {
       try {
         const res = await fetch(`http://localhost:5000/api/categories/${id}`);
-        const data = await res.json();
+        const result = await res.json();
 
         setFormData({
-          name: data.name,
-          description: data.description || "",
-          type: data.type || "fixed",
-          startDate: data.startDate || "",
-          endDate: data.endDate || "",
+          name: result.data.name,
+          description: result.data.description || "",
+          type: result.data.type || "fixed",
+          startDate: result.data.startDate || "",
+          endDate: result.data.endDate || "",
         });
 
-        if (data.image) {
-          setPreview(`http://localhost:5000${data.image}`);
+        if (result.data.image) {
+          setPreview(`http://localhost:5000${result.data.image}`);
         }
       } catch (err) {
         console.error("Failed to fetch category:", err);

@@ -42,7 +42,7 @@ export default function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              TravelVerse
+              Tourizto
             </motion.span>
           )}
         </AnimatePresence>
@@ -56,19 +56,27 @@ export default function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
       <nav className="flex-1">
         <ul className="space-y-2 p-4">
           {[
-            { icon: <FaHome />, label: "Dashboard", href: "/" },
-            { icon: <FaTicketAlt />, label: "Bookings", href: "/bookings" },
-            { icon: <FaUsers />, label: "Users", href: "/users" },
-            { icon: <FaList />, label: "Categories", href: "/categories" },
-            { icon: <FaPlane />, label: "Tours", href: "/tours" },
+            { icon: <FaHome />, label: "Tổng quan", href: "/" },
+            {
+              icon: <FaTicketAlt />,
+              label: "quản lý đặt chỗ",
+              href: "/bookings",
+            },
+            { icon: <FaUsers />, label: "Quản lí người dùng", href: "/users" },
+            {
+              icon: <FaList />,
+              label: "Quản lí danh mục",
+              href: "/categories",
+            },
+            { icon: <FaPlane />, label: "Quản lí chuyến đi", href: "/tours" },
             {
               icon: <FaMapMarkerAlt />,
-              label: "Locations",
+              label: "Quản lí địa điểm",
               href: "/locations",
             },
-            { icon: <FaHotel />, label: "Hotels", href: "/hotels" },
-            { icon: <FaGlobe />, label: "Destinations", href: "/destinations" },
-            { icon: <FaCog />, label: "Settings", href: "/settings" },
+            { icon: <FaHotel />, label: "Quản lí khách sạn", href: "/hotels" },
+            { icon: <FaGlobe />, label: "Quản lí điểm đếm", href: "/destinations" },
+            { icon: <FaCog />, label: "Cài đặt", href: "/settings" },
           ].map((item, index) => (
             <li key={index}>
               <Link

@@ -25,7 +25,7 @@ export default function Header({ isSidebarOpen }: HeaderProps) {
       } right-0 z-10`}
     >
       <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-        Dashboard
+        Tổng Quan
       </h1>
       <div className="flex items-center space-x-4">
         <span className="text-gray-300 font-medium">Admin User</span>
@@ -33,7 +33,7 @@ export default function Header({ isSidebarOpen }: HeaderProps) {
           onClick={handleLogout}
           className="px-4 py-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full hover:scale-105 transition-transform"
         >
-          Logout
+          Đăng xuất
         </button>
       </div>
     </header>

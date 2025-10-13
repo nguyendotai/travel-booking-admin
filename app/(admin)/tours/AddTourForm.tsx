@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import Notification from "../components/Notification";
 
 interface Category {
   id: number;
@@ -18,6 +20,10 @@ interface Hotel {
   location_id: number | string;
   name: string;
 }
+interface Departure {
+  id: number;
+  name: string;
+}
 interface Destination {
   id: number;
   location_id: number | string;
@@ -25,7 +31,15 @@ interface Destination {
   description: string;
 }
 
+interface TourDay {
+  dayNumber: number;
+  title: string;
+  description: string;
+  destinationIds: number[];
+}
+
 export default function AddTourForm() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -37,6 +51,7 @@ export default function AddTourForm() {
     fixedCategoryId: "",
     optionalCategoryIds: [] as number[],
     locationId: 0,
+    departureId: 0,
     hotelId: "",
     discount: "0", // 👈 thêm
     isHotDeal: false, // 👈 thêm
@@ -45,6 +60,7 @@ export default function AddTourForm() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [departures, setDepartures] = useState<Departure[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<
     number[]
@@ -52,18 +68,38 @@ export default function AddTourForm() {
   const [selectedLocation, setSelectedLocation] = useState<number | "">("");
   const [image, setImage] = useState<File | null>(null);
 
+  const [tourDays, setTourDays] = useState<TourDay[]>([]);
+
+  const [notify, setNotify] = useState({
+    show: false,
+    type: "info" as "success" | "error" | "warning" | "info",
+    message: "",
+  });
+
+  const showNotify = (
+    type: "success" | "error" | "warning" | "info",
+    message: string
+  ) => {
+    setNotify({ show: true, type, message });
+  };
+
+  const closeNotify = () => setNotify({ ...notify, show: false });
+
   useEffect(() => {
     const fetchData = async () => {
-      const [catRes, locRes] = await Promise.all([
+      const [catRes, locRes, depRes] = await Promise.all([
         fetch("http://localhost:5000/api/categories"),
         fetch("http://localhost:5000/api/locations"),
+        fetch("http://localhost:5000/api/departures"),
       ]);
-      const [catData, locData] = await Promise.all([
+      const [catData, locData, depData] = await Promise.all([
         catRes.json(),
         locRes.json(),
+        depRes.json(),
       ]);
       setCategories(Array.isArray(catData.data) ? catData.data : []);
       setLocations(Array.isArray(locData.data) ? locData.data : []);
+      setDepartures(Array.isArray(depData.data) ? depData.data : []);
     };
     fetchData();
   }, []);
@@ -96,6 +132,52 @@ export default function AddTourForm() {
     setSelectedDestinationIds([]);
   };
 
+  const addTourDay = () => {
+    setTourDays((prev) => [
+      ...prev,
+      {
+        dayNumber: prev.length + 1,
+        title: "",
+        description: "",
+        destinationIds: [],
+      },
+    ]);
+  };
+
+  const removeTourDay = (index: number) => {
+    setTourDays((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((d, i) => ({ ...d, dayNumber: i + 1 }))
+    );
+  };
+
+  const handleTourDayChange = (
+    index: number,
+    field: keyof TourDay,
+    value: string | number | number[]
+  ) => {
+    setTourDays((prev) => {
+      const newDays = [...prev];
+      newDays[index] = { ...newDays[index], [field]: value };
+      return newDays;
+    });
+  };
+
+  const handleTourDayDestinationToggle = (dayIndex: number, destId: number) => {
+    setTourDays((prev) => {
+      const newDays = [...prev]; // copy mảng days
+      const day = { ...newDays[dayIndex] }; // copy day object
+      if (day.destinationIds.includes(destId)) {
+        day.destinationIds = day.destinationIds.filter((id) => id !== destId);
+      } else {
+        day.destinationIds = [...day.destinationIds, destId]; // copy array + push
+      }
+      newDays[dayIndex] = day; // update day
+      return newDays;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -106,13 +188,17 @@ export default function AddTourForm() {
       !formData.startDate ||
       !formData.endDate ||
       !formData.fixedCategoryId ||
-      !formData.locationId
+      !formData.locationId ||
+      !formData.departureId
     ) {
-      return alert("Vui lòng điền đầy đủ thông tin bắt buộc");
+      return showNotify("warning", "Vui Lòng điền đầy đủ thông tin");
     }
 
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
-      return alert("End date cannot be before start date");
+      return showNotify(
+        "warning",
+        "Ngày kết thúc không thể trước ngày bắt đâu"
+      );
     }
 
     try {
@@ -127,6 +213,7 @@ export default function AddTourForm() {
       form.append("discount", String(Number(formData.discount)));
       form.append("isHotDeal", String(formData.isHotDeal));
       form.append("fixedCategoryId", String(Number(formData.fixedCategoryId)));
+      form.append("departureId", String(Number(formData.departureId)));
       if (formData.locationId)
         form.append("location_id", String(formData.locationId));
       if (formData.hotelId)
@@ -138,6 +225,9 @@ export default function AddTourForm() {
           "optionalCategoryIds",
           JSON.stringify(formData.optionalCategoryIds)
         );
+      if (tourDays.length > 0) {
+        form.append("days", JSON.stringify(tourDays)); // thêm dòng này
+      }
       if (image) form.append("image", image);
       const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:5000/api/tours", {
@@ -148,9 +238,8 @@ export default function AddTourForm() {
         body: form,
       });
       const data = await res.json();
-      console.log("🔍 Response từ server:", data);
       if (res.ok) {
-        alert("✅ Tour created successfully!");
+        showNotify("success", "Tạo chuyến đi thành công");
         console.log("New Tour:", data);
 
         // 👉 reset form
@@ -165,6 +254,7 @@ export default function AddTourForm() {
           fixedCategoryId: "",
           optionalCategoryIds: [],
           locationId: 0,
+          departureId: 0,
           hotelId: "",
           discount: "0",
           isHotDeal: false,
@@ -174,256 +264,314 @@ export default function AddTourForm() {
         setSelectedLocation("");
         setHotels([]);
         setDestinations([]);
+        setTimeout(() => {
+          router.push("/tours");
+        }, 800);
       } else {
-        alert(data.error || "❌ Failed to create tour");
+        showNotify("error", "Lỗi khi tạo chuyến đi");
       }
     } catch (err) {
       console.error(err);
-      alert("Server error!");
+      showNotify("error", "Lỗi server");
     }
   };
 
   return (
-    <motion.div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
-    >
-      <motion.form
-        onSubmit={handleSubmit}
-        className="w-full max-w-3xl bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20"
+    <>
+      <Notification
+        type={notify.type}
+        message={notify.message}
+        show={notify.show}
+        onClose={closeNotify}
+      />
+      <motion.div
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 p-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
       >
-        <h2 className="text-3xl font-bold text-white text-center mb-8">
-          Create New Tour
-        </h2>
+        <motion.form
+          onSubmit={handleSubmit}
+          className="w-full max-w-3xl bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20"
+        >
+          <h2 className="text-3xl font-bold text-white text-center mb-8">
+            Create New Tour
+          </h2>
 
-        {/* Tour Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <input
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Tour name"
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-          <input
-            type="number"
-            name="price"
-            value={formData.price}
-            onChange={handleChange}
-            placeholder="Price"
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-          <input
-            type="number"
-            name="discount"
-            value={formData.discount}
-            onChange={handleChange}
-            placeholder="Discount (%)"
-            min="0"
-            max="100"
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-
-          <label className="flex items-center gap-2 text-white">
+          {/* Tour Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <input
-              type="checkbox"
-              checked={formData.isHotDeal}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  isHotDeal: e.target.checked,
-                }))
-              }
-              className="accent-cyan-400"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Tour name"
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
             />
-            Hot Deal
-          </label>
-          <input
-            type="number"
-            name="capacity"
-            value={formData.capacity}
-            onChange={handleChange}
-            placeholder="Capacity"
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-        </div>
+            <input
+              type="number"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              placeholder="Price"
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+            <input
+              type="number"
+              name="discount"
+              value={formData.discount}
+              onChange={handleChange}
+              placeholder="Discount (%)"
+              min="0"
+              max="100"
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
 
-        {/* Dates */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <input
-            type="date"
-            name="startDate"
-            value={formData.startDate}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-          <input
-            type="date"
-            name="endDate"
-            value={formData.endDate}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-        </div>
+            <label className="flex items-center gap-2 text-white">
+              <input
+                type="checkbox"
+                checked={formData.isHotDeal}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    isHotDeal: e.target.checked,
+                  }))
+                }
+                className="accent-cyan-400"
+              />
+              Hot Deal
+            </label>
+            <input
+              type="number"
+              name="capacity"
+              value={formData.capacity}
+              onChange={handleChange}
+              placeholder="Capacity"
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+          </div>
 
-        {/* Categories */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          {/* Dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <input
+              type="date"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+            <input
+              type="date"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleChange}
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+          </div>
 
-          <select
-            name="fixedCategoryId"
-            value={formData.fixedCategoryId}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          >
-            <option value="">Select Fixed Category</option>
-            {categories
-              .filter((c) => c.type === "fixed")
-              .map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <select
+              name="fixedCategoryId"
+              value={formData.fixedCategoryId}
+              onChange={handleChange}
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              <option value="">Select Fixed Category</option>
+              {categories
+                .filter((c) => c.type === "fixed")
+                .map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              name="departureId"
+              value={formData.departureId}
+              onChange={handleChange}
+              required
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              <option value="">Select Departure</option>
+              {departures.map((dep) => (
+                <option key={dep.id} value={dep.id}>
+                  {dep.name}
                 </option>
               ))}
-          </select>
+            </select>
+          </div>
 
-          <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 text-white">
-            <p className="mb-2 font-semibold">Optional Categories:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {categories
-                .filter((c) => c.type === "optional")
-                .map((cat) => {
-                  const checked = formData.optionalCategoryIds.includes(cat.id);
+          {/* Location, Hotel, Destinations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <select
+              value={selectedLocation || ""}
+              onChange={handleLocationChange}
+              required
+              disabled={!formData.fixedCategoryId}
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+            >
+              <option value="">Select Location</option>
+              {locations
+                .filter(
+                  (loc) =>
+                    loc.fixedCategoryId === Number(formData.fixedCategoryId)
+                )
+                .map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              name="hotelId"
+              value={formData.hotelId}
+              onChange={handleChange}
+              disabled={!selectedLocation}
+              className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
+            >
+              <option value="">Select Hotel</option>
+              {hotels.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 text-white col-span-2">
+              <p className="mb-2 font-semibold">Destinations:</p>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {destinations.map((d) => {
+                  const checked = selectedDestinationIds.includes(d.id);
                   return (
-                    <label key={cat.id} className="flex items-center gap-2">
+                    <label key={d.id} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        value={cat.id}
+                        value={d.id}
                         checked={checked}
                         onChange={(e) => {
                           const id = Number(e.target.value);
-                          setFormData((prev) => {
-                            let updated = [...prev.optionalCategoryIds];
+                          setSelectedDestinationIds((prev) => {
+                            let updated = [...prev];
                             if (e.target.checked) updated.push(id);
                             else updated = updated.filter((i) => i !== id);
-                            return { ...prev, optionalCategoryIds: updated };
+                            return updated;
                           });
                         }}
                         className="accent-cyan-400"
                       />
-                      {cat.name}
+                      {d.name}
                     </label>
                   );
                 })}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Location, Hotel, Destinations */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <select
-            value={selectedLocation || ""}
-            onChange={handleLocationChange}
-            required
-            disabled={!formData.fixedCategoryId}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="">Select Location</option>
-            {locations
-              .filter(
-                (loc) =>
-                  loc.fixedCategoryId === Number(formData.fixedCategoryId)
-              )
-              .map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-          </select>
-
-          <select
-            name="hotelId"
-            value={formData.hotelId}
+          {/* Description + Image */}
+          <textarea
+            name="description"
+            value={formData.description}
             onChange={handleChange}
-            disabled={!selectedLocation}
-            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600"
-          >
-            <option value="">Select Hotel</option>
-            {hotels.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
+            placeholder="Description"
+            required
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-28"
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) =>
+              setImage(e.target.files ? e.target.files[0] : null)
+            }
+            className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+
+          <div className="mb-6">
+            <h3 className="text-white font-semibold mb-2">Tour Days</h3>
+            {tourDays.map((day, idx) => (
+              <div
+                key={idx}
+                className="bg-gray-800/50 p-4 mb-4 rounded-lg border border-gray-600"
+              >
+                <div className="flex justify-between mb-2">
+                  <span className="text-white font-medium">
+                    Day {day.dayNumber}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeTourDay(idx)}
+                    className="text-red-400"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Title"
+                  value={day.title}
+                  onChange={(e) =>
+                    handleTourDayChange(idx, "title", e.target.value)
+                  }
+                  className="w-full p-2 rounded mb-2"
+                />
+                <textarea
+                  placeholder="Description"
+                  value={day.description}
+                  onChange={(e) =>
+                    handleTourDayChange(idx, "description", e.target.value)
+                  }
+                  className="w-full p-2 rounded mb-2"
+                />
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto text-white">
+                  {destinations.map((d) => (
+                    <label key={d.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="accent-cyan-400"
+                        checked={day.destinationIds.includes(d.id)}
+                        onChange={() =>
+                          handleTourDayDestinationToggle(idx, d.id)
+                        }
+                      />
+                      {d.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
-          </select>
-
-          <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 text-white col-span-2">
-            <p className="mb-2 font-semibold">Destinations:</p>
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-              {destinations.map((d) => {
-                const checked = selectedDestinationIds.includes(d.id);
-                return (
-                  <label key={d.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      value={d.id}
-                      checked={checked}
-                      onChange={(e) => {
-                        const id = Number(e.target.value);
-                        setSelectedDestinationIds((prev) => {
-                          let updated = [...prev];
-                          if (e.target.checked) updated.push(id);
-                          else updated = updated.filter((i) => i !== id);
-                          return updated;
-                        });
-                      }}
-                      className="accent-cyan-400"
-                    />
-                    {d.name}
-                  </label>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={addTourDay}
+              className="py-2 px-4 bg-cyan-500 text-white rounded"
+            >
+              Add Day
+            </button>
           </div>
-        </div>
 
-        {/* Description + Image */}
-        <textarea
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          placeholder="Description"
-          required
-          className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 h-28"
-        />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
-          className="w-full p-3 rounded-lg bg-gray-800/50 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-        />
-
-        <motion.button
-          type="submit"
-          className="w-full py-3 bg-blue-500 text-white mt-4 rounded-lg"
-        >
-          Create Tour
-        </motion.button>
-      </motion.form>
-    </motion.div>
+          <motion.button
+            type="submit"
+            className="w-full py-3 bg-blue-500 text-white mt-4 rounded-lg"
+          >
+            Create Tour
+          </motion.button>
+        </motion.form>
+      </motion.div>
+    </>
   );
 }

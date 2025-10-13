@@ -32,6 +32,36 @@ export default function LocationsManagementPage() {
     fetchLocations();
   }, []);
 
+  const handleDelete = async (id: number) => {
+    if (!confirm("Bạn có chắc muốn xóa Location này không?")) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Bạn cần đăng nhập để xóa Location!");
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/locations/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "Xóa thành công");
+        setLocations((prev) => prev.filter((loc) => loc.id !== id)); // cập nhật UI
+      } else {
+        alert(data.error || "Xóa thất bại");
+      }
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      alert("Lỗi server khi xóa!");
+    }
+  };
+
   if (loading) {
     return <p className="text-center text-gray-400">Loading...</p>;
   }
@@ -87,10 +117,15 @@ export default function LocationsManagementPage() {
                 </span>
               </td>
               <td className="p-3 flex space-x-2">
-                <button className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 transition">
-                  Edit
-                </button>
-                <button className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition">
+                <Link href={`/locations/edit/${loc.id}`}>
+                  <button className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 transition">
+                    Edit
+                  </button>
+                </Link>
+                <button
+                  onClick={() => handleDelete(loc.id)}
+                  className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition"
+                >
                   Delete
                 </button>
               </td>
