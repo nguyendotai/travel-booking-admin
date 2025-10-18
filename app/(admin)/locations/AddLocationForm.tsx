@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface FixedCategory {
   id: number;
@@ -8,6 +9,7 @@ interface FixedCategory {
 }
 
 export default function AddLocationForm() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     country: "",
@@ -75,6 +77,7 @@ export default function AddLocationForm() {
           description: "",
           fixedCategoryId: "",
         });
+        router.push("/hotels"); 
       } else {
         alert(data.error || "Failed to create location");
       }

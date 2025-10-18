@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface Location {
   id: number;
@@ -9,6 +10,7 @@ interface Location {
 }
 
 export default function AddHotelForm() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -86,6 +88,7 @@ export default function AddHotelForm() {
           stars: 3,
           locationId: null,
         });
+        router.push("/hotels"); 
       } else {
         alert(data.error || "Failed to create hotel");
       }

@@ -40,6 +40,29 @@ export default function HotelsManagementPage() {
     fetchHotels();
   }, []);
 
+  const handleDelete = async (id: number) => {
+    if (!confirm("Bạn có chắc muốn xóa khách sạn này không?")) return;
+
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:5000/api/hotels/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Xóa thành công");
+        setHotels((prev) => prev.filter((d) => d.id !== id));
+      } else {
+        alert(data.error || "Xóa thất bại");
+      }
+    } catch (err) {
+      console.log("Xóa Thất bại:", err);
+    }
+  };
+
   return (
     <motion.div
       className="p-6 bg-gray-800/50 backdrop-blur-md rounded-xl shadow-xl border border-blue-500/30"
@@ -98,10 +121,13 @@ export default function HotelsManagementPage() {
               </td>
               <td className="p-3 flex space-x-2">
                 <button className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 transition">
-                  Edit
+                  Sửa
                 </button>
-                <button className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition">
-                  Delete
+                <button
+                  onClick={() => handleDelete(hotel.id)}
+                  className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 transition"
+                >
+                  Xóa
                 </button>
               </td>
             </motion.tr>
