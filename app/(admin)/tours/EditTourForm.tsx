@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface Category {
   id: number;
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export default function EditTourForm({ slug }: Props) {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -246,6 +248,7 @@ export default function EditTourForm({ slug }: Props) {
       body: form,
     });
     const data = await res.json();
+    router.push("/tours")
     if (res.ok) {
       alert("✅ Tour updated successfully!");
     } else {

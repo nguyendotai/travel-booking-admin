@@ -109,7 +109,7 @@ export default function CategoriesManagementPage() {
               <td className="p-3 align-middle">
                 {cat.image ? (
                   <img
-                    src={`http://localhost:5000${cat.image}`}
+                    src={`${cat.image}`}
                     alt={cat.name}
                     className="w-16 h-16 object-cover rounded"
                   />

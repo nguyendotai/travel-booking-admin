@@ -10,7 +10,7 @@ interface Location {
 }
 
 export default function AddHotelForm() {
-  const router = useRouter()
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     address: "",

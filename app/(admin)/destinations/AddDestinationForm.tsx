@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface Loction {
   id: number;
@@ -9,6 +10,7 @@ interface Loction {
 }
 
 export default function AddDestinationForm() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -94,6 +96,7 @@ export default function AddDestinationForm() {
           featured: "false",
         });
         setImage(null);
+        router.push("/destinations")
       } else {
         alert(data.error || "Failed to create Destination");
       }

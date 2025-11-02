@@ -77,7 +77,7 @@ export default function AddLocationForm() {
           description: "",
           fixedCategoryId: "",
         });
-        router.push("/hotels"); 
+        router.push("/locations"); 
       } else {
         alert(data.error || "Failed to create location");
       }

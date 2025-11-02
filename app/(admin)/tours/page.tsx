@@ -116,7 +116,7 @@ export default function ToursManagementPage() {
               <td className="p-3">#{index + 1}</td>
               <td className="p-3">
                 <img
-                  src={`http://localhost:5000${tour.image}`}
+                  src={`${tour.image}`}
                   alt={tour.name}
                   className="w-16 h-16 object-cover rounded-lg border border-gray-600"
                 />
